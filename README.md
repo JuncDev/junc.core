@@ -1,1 +1,1 @@
-Junc API
+Junc core.
