@@ -7,10 +7,10 @@ import herd.asynctest {
 import herd.junc.core {
 	Railway,
 	startJuncCore,
-	JuncOptions
+	JuncOptions,
+	LogWriter
 }
 import herd.junc.api.monitor {
-	LogWriter,
 	Priority
 }
 import ceylon.test {
@@ -23,7 +23,9 @@ import herd.junc.api {
 	Message,
 	JuncTrack,
 	TimeEvent,
-	PeriodicTimeRow
+	PeriodicTimeRow,
+	ServiceAddedEvent,
+	JuncAddress
 }
 import herd.asynctest.match {
 	EqualTo,
@@ -138,6 +140,9 @@ shared class BasicJuncCore() satisfies TestSuite {
 		socket.publish( toSend );
 	}
 
+	void onServiceRegistered( AsyncTestContext context )( ServiceAddedEvent<Integer, Integer> event ) {
+		context.assertThat( event.service.address, EqualObjects<JuncAddress>( addressSocket ), "", true );
+	}
 	
 	"Test on connecting to service and sending data using socket."
 	shared test void socket( AsyncTestContext context ) {
@@ -145,6 +150,7 @@ shared class BasicJuncCore() satisfies TestSuite {
 		assert( exists track = station.track );
 		
 		context.start();
+		track.juncEvents.onData( onServiceRegistered( context ) );
 		track.registerService<Integer, Integer, ServiceAddress>( addressSocket ).onComplete (
 			(JuncService<Integer, Integer> service) {
 				service.onConnected( echoService( context ) );
@@ -197,7 +203,7 @@ shared class BasicJuncCore() satisfies TestSuite {
 	}
 	
 	
-	void echoMessageServer( AsyncTestContext context )( JuncSocket<IntegerMessage, IntegerMessage> socket ) {
+	void echoMessageServer( AsyncTestContext context )( JuncSocket<IntegerMessage, Nothing> socket ) {
 		"Test is not correctly initialized."
 		assert( exists track = station.track );
 		socket.onData (
@@ -206,7 +212,7 @@ shared class BasicJuncCore() satisfies TestSuite {
 		socket.onError( (Throwable err) => context.fail(err, "``addressMessage`` service") );
 	}
 	
-	void echoMessageClient( AsyncTestContext context )( JuncSocket<IntegerMessage, IntegerMessage> socket ) {
+	void echoMessageClient( AsyncTestContext context )( JuncSocket<Nothing, IntegerMessage> socket ) {
 		"Test is not correctly initialized."
 		assert( exists track = station.track );
 		socket.onError( (Throwable err) => context.fail(err, "``addressMessage`` client") );
@@ -229,10 +235,10 @@ shared class BasicJuncCore() satisfies TestSuite {
 		assert( exists track = station.track );
 		
 		context.start();
-		track.registerService<IntegerMessage, IntegerMessage, ServiceAddress>( addressMessage ).onComplete (
-			(JuncService<IntegerMessage, IntegerMessage> service) {
+		track.registerService<Nothing, IntegerMessage, ServiceAddress>( addressMessage ).onComplete (
+			(JuncService<Nothing, IntegerMessage> service) {
 				service.onConnected( echoMessageServer( context ) );
-				track.connect<IntegerMessage, IntegerMessage, ServiceAddress>( addressMessage ).onComplete (
+				track.connect<Nothing, IntegerMessage, ServiceAddress>( addressMessage ).onComplete (
 					echoMessageClient( context ),
 					(Throwable err) {
 						context.fail(err, "``addressMessage`` connection");

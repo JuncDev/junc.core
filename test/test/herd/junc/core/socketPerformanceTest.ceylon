@@ -15,14 +15,14 @@ import herd.junc.api.monitor {
 	Counter,
 	Average,
 	Meter,
-	LogWriter,
 	Priority
 }
 import herd.junc.core {
 
 	startJuncCore,
 	JuncOptions,
-	Railway
+	Railway,
+	LogWriter
 }
 
 
@@ -105,7 +105,6 @@ class SocketPerformanceTestStation( Integer maxSockets ) satisfies Station
 		response = junc.monitor.average( responseRate );
 		responseServer = junc.monitor.average( serverRate );
 		messages = junc.monitor.meter( messageRate );
-		
 		
 		return track.registerService<Integer, Integer, ServiceAddress>( address ).onComplete (
 			( JuncService<Integer, Integer> service ) {

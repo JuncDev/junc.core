@@ -1,6 +1,5 @@
 import herd.junc.api.monitor {
 
-	LogWriter,
 	Priority,
 	Counter,
 	Average,
@@ -23,7 +22,8 @@ import herd.junc.core {
 
 	startJuncCore,
 	JuncOptions,
-	Railway
+	Railway,
+	LogWriter
 }
 
 
