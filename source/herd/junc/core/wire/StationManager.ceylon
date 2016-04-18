@@ -83,9 +83,11 @@ shared class StationManager (
 	
 		
 	"Creates only track."
-	JuncTrack juncTrack( "Back register." StationRegister register ) {
+	JuncTrack juncTrack (
+		"Back register." StationRegister register,
+		"Back processor" Processor processor
+	) {
 		return object satisfies JuncTrack {
-			Processor processor = processorFactory.createProcessor();
 			TrackHelper track = TrackHelper( processor );
 			register.addTrack( track );
 
@@ -169,13 +171,30 @@ shared class StationManager (
 		};
 	}
 	
+	Promise<JuncTrack> createTrackWithRegister( StationRegister register ) {
+		if ( register.closed ) {
+			return currentContext.rejectedPromise( ContextStoppedError() );
+		}
+		else {
+			value def = currentContext.newResolver<JuncTrack>();
+			processorFactory.createProcessor (
+				( Processor processor ) {
+					processor.execute (
+						() => def.resolve( juncTrack( register, processor ) )
+					);
+				}
+			);
+			return def.promise;
+		}
+	}
+
 	
 	"_Junc_ backgrounded by [[register]]."
 	Junc juncForRegister( "Back register." StationRegister register ) {
 		return object satisfies Junc {
 			
-			shared actual JuncTrack newTrack()
-					=>	if ( register.closed ) then closedTrack else juncTrack( register );
+			shared actual Promise<JuncTrack> createTrack()
+					=> createTrackWithRegister( register );
 			
 			shared actual Promise<Registration> deployStation( Station station, Context? responseContext )
 					=> outer.deployStation( station, responseContext );
@@ -190,7 +209,8 @@ shared class StationManager (
 			}
 			
 			shared actual Monitor monitor => register.monitor;
-			shared actual Boolean overloaded => processorFactory.overloaded;			
+			
+			shared actual Boolean threadable => processorFactory.extensible;			
 			
 			shared actual ConnectorDescriptor<From, To, Address>[] registeredConnectors<From, To, Address>()
 					given Address satisfies JuncAddress
@@ -220,20 +240,19 @@ shared class StationManager (
 	}
 	
 	
-	"Deployes station. Returns `promise` resolved with station registration or rejected if some error occured."
+	"Deploys new station. Returns `promise` resolved with station registration or rejected if some error occured."
 	shared Promise<Registration> deployStation (
 		"Station to be deployed." Station station,
 		"Optional context returned `promise` has to work on." Context? responseContext )
 	{
 		if ( running ) {
 			StationRegister register = StationRegister( station, monitor, stationContainer, events.publisher );
-			value track = juncTrack( register );
 			value junc = juncForRegister( register );
-			value ret = track.context.executeWithPromise<Anything, Null> (
-					( Null n ) => station.start( track, junc ), null
-				).map<Registration> (
+			return createTrackWithRegister( register ).compose (
+				( JuncTrack track ) {
+					return station.start( track, junc ).map<Registration> (
 						register.getStationRegistration
-		 			).onComplete(
+		 			).onComplete (
 						( Registration reg ) {
 							stationContainer.stations.addToList( register );
 							numberOfStations.increment();
@@ -244,7 +263,10 @@ shared class StationManager (
 							monitor.logError( monitored.core, "when deploying station ```type( station )```", err );
 						}
 					);
-			return if ( exists resp = responseContext ) then ret.contexting( resp ) else ret;
+					
+				},
+				responseContext
+			);
 		}
 		else {
 			return currentContext.rejectedPromise( JuncStoppedError() );
@@ -282,7 +304,10 @@ shared class StationManager (
 	{
 		if ( running ) {
 			if ( exists work = stationContainer.getWorkshop<From, To, Address>() ) {
-				return work.provideService<From, To>( address, context );
+				return work.provideService<From, To>( address, context ).map (
+					( Message<JuncService<From, To>, Null> message )
+						=> JuncServiceEstablisher( message.body, message )
+				);
 			}
 			else {
 				value err = ServiceRegistrationError();

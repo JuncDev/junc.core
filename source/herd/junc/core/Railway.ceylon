@@ -4,10 +4,6 @@ import herd.junc.api {
 	Registration,
 	Context
 }
-import herd.junc.api.monitor {
-	MetricWriter,
-	LogWriter
-}
 
 
 "

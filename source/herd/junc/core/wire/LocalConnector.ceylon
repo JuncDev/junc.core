@@ -12,9 +12,9 @@ import herd.junc.api {
 	Context,
 	Connector,
 	Workshop,
-	Resolver,
-	Deferred,
-	ServiceAddress
+	ServiceAddress,
+	Message,
+	JuncTrack
 }
 import herd.junc.core.utils {
 	ListItem,
@@ -25,7 +25,7 @@ import herd.junc.core.utils {
 "Container for local services and connections."
 by( "Lis" )
 class LocalConnector (
-	"Context connector is executed on." Context context,
+	"Context connector is executed on." JuncTrack track,
 	"Selecting one service from a list when connection to be established." ServiceSelector selector,
 	"_Junc_ the connector may use." Junc junc
 )
@@ -68,11 +68,6 @@ class LocalConnector (
 		service.onClose( store.remove );
 	}
 
-	void resolveServiceAdding<From, To> (
-		[Resolver<ConnectedJuncService<From, To>>, ConnectedJuncService<From, To>] resolving
-	) {
-		resolving[0].resolve( resolving[1] );
-	}
 	
 	"Returns service from store if it is asked type and not blocked."
 	ConnectedJuncService<From, To>? filterStores<From, To>( ServiceStore store ) {
@@ -97,18 +92,21 @@ class LocalConnector (
 	}
 	
 	
-	shared actual Promise<JuncService<Send, Receive>> provideService<Send, Receive> (
+	shared actual Promise<Message<JuncService<Send, Receive>, Null>> provideService<Send, Receive> (
 		ServiceAddress address, Context context
 	)
 			given Send of Anything
 			given Receive of Anything	
 	{
 		value addedService = LocalService<Send, Receive>( address, context, junc );
-		addService( addedService );
-		Deferred<ConnectedJuncService<Send, Receive>> resolver
-				= context.newResolver<ConnectedJuncService<Send, Receive>>();
-		this.context.executeWithArgument( resolveServiceAdding<Send, Receive>, [resolver, addedService] );
-		return resolver.promise;
+		return context.resolvedPromise (
+			this.track.createMessage<JuncService<Send, Receive>, Null> (
+				addedService,
+				( Message<Null, JuncService<Send, Receive>> msg ) {
+					addService( addedService );
+				}
+			)
+		);
 	}
 	
 	shared actual Promise<JuncSocket<Send, Receive>> connect<Send, Receive> (

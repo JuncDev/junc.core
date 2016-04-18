@@ -22,7 +22,7 @@ shared class LocalStation (
 	
 	shared actual Promise<Object> start( JuncTrack track, Junc junc ) {
 		monitor.useTrack( track );
-		value connector = LocalConnector( track.context, selector, junc );
+		value connector = LocalConnector( track, selector, junc );
 		return track.registerWorkshop( connector ).and<Object, Registration> (
 			track.registerConnector( connector ),
 			( Registration val, Registration otherVal ) {

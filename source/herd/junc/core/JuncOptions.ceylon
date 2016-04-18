@@ -14,14 +14,21 @@ shared class JuncOptions (
 	"Log priority."
 	shared Priority logPriority = Priority.info,
 	
-	"Factor applied to number of system cores (processors) to obtain maximum allowed number of threads."
+	"Factor applied to number of system cores (processors) to calculate maximum allowed number of threads."
 	shared Float coreFactor = 1.5,
 	
-	"Period in event loop cycles used to perform _tracks_ optimization."
-	shared Integer optimizationPeriodInCycles = 500,
+	"Period in event loop cycles used to perform _tracks_ optimization.
+	 This means the _Junc_ optimizes or redistributes tracks over threads
+	 each `optimizationPeriodInCycles` event loop cycle."
+	shared Integer optimizationPeriodInCycles = 20,
 	
-	"Percents the control execution may take from full execution time at middle load level.  
-	 To be greater than 0.0 and less than 1.0."
-	shared Float controlPersent = 0.02
+	"Time limit in milliseconds used in load calculations.  
+	 If averaged process time is:  
+	 * Less with some tolerance the track is at low load level.  
+	 * Close to `timeLimit` the track is at middle load level.  
+	 * Greater with some tolerance the track is at high load level.  
+	 "
+	shared Integer timeLimit = 200
+	
 )
 {}

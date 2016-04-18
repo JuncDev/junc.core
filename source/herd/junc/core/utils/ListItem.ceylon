@@ -15,7 +15,7 @@ shared class ListItem<List>()
 	shared variable List? previous = null;
 	
 	"state from atomic reference"
-	shared variable ListItemState state = stateAdding;
+	shared variable ListItemState state = ListItemState.stateAdding;
 	
 	"registration this item contains"
 	shared RegistrationRef registration = RegistrationRef();

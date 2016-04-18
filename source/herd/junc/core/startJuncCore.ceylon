@@ -5,8 +5,6 @@ import herd.junc.api {
 	Context
 }
 import herd.junc.api.monitor {
-	LogWriter,
-	MetricWriter,
 	monitored
 }
 import herd.junc.core.concurrency {
@@ -34,20 +32,25 @@ shared Promise<Railway> startJuncCore( "_Junc_ options." JuncOptions options = J
 	
 	Float coreFactor = if ( options.coreFactor > 0.0 ) then options.coreFactor else 0.0;
 	
-	Integer averagingPeriodInCycles =
+	Integer optimizationPeriodInCycles =
 			if ( options.optimizationPeriodInCycles > 0 )
 			then options.optimizationPeriodInCycles
-			else 500;
+			else 20;
 	
-	Float controlPersent =	if ( options.controlPersent > 0.0 && options.controlPersent < 1.0 )
-							then options.controlPersent else 0.02;
+	Integer timeLimit = if ( options.timeLimit > 1 ) then options.timeLimit else 1;
+	
+	Float meanFactor = 0.05;
 	
 // monitor
 	Monitoring monitor = Monitoring( options.monitorPeriod * 1000, options.logPriority );
 
 // context / thread manager
-	ContextManager contextManager = ContextManager( coreFactor, controlPersent,
-		LoadGraderByBounds( 0.40, 0.30, 0.80, 0.70 ), averagingPeriodInCycles, monitor );
+	ContextManager contextManager = ContextManager (
+		coreFactor,
+		LoadGraderByBounds( 0.35, 0.25, 0.75, 0.65 ), optimizationPeriodInCycles,
+		timeLimit, meanFactor,
+		monitor
+	);
 
 // station manager and local service provider / connector
 	StationManager stationManager = StationManager( contextManager, monitor, 10 );

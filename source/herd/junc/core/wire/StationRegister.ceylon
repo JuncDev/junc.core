@@ -42,6 +42,10 @@ import ceylon.collection {
 
 	ArrayList
 }
+import ceylon.language.meta {
+
+	type
+}
 
 
 "Represents station which works on junc."
@@ -237,6 +241,7 @@ class StationRegister (
 	shared object stationRegistration satisfies Registration {
 		shared actual void cancel() {
 			if ( closedAtomic.compareAndSet( false, true ) ) {
+				monitor.logInfo( monitored.core, "station ```type( station )``` has been undeployed" );
 				// remove from station list
 				registration.cancel();
 				// close workshops

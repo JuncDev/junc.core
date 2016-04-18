@@ -21,17 +21,17 @@
  	* Provide registration of local services and connection to using `ServiceAddress` address. 
  	* Any type of send / received data may be used.
  * Monitoring.
- 	* `Counter` of total number of deployed stations with name 'junc.core.stations' 
- 	* All local services provides monitoring of:
- 		* `Counter` of number of connections with name 'service address name.number of sockets'.
- 		* `Meter` of connection rate per second with name 'serviceaddress name.connection rate'.
- 	* Threads:
- 		* `Counter` of number of threads with name 'junc.core.number of threads'
- 		* For each thread `Average` of thread load level (value from 0.0 to 1.0) with name
- 		  'junc.core.thread._thread ID_.loadl level'.
- 		* For each thread `Average` of thread execution queue size per execution loop
+ 	* `Counter` of total number of deployed stations with name 'junc.core.stations' .
+ 	* `Counter` of number of currently executed threads with name 'junc.core.number of threads'.
+ 	* For each executed thread:
+ 		* `Average` of thread load level (value from 0.0 to 1.0) with name
+ 		  'junc.core.thread._thread ID_.load level'.
+ 		* `Average` of thread execution queue size per execution loop
  		  (number of functions in execution queue) with name
  		  'junc.core.thread._thread ID_.size of queue per loop'.
+ 	* Each local service provides monitoring of:
+ 		* `Counter` of number of connections with name 'service address.number of sockets'.
+ 		* `Meter` of connection rate per second with name 'service address.connection rate'.
  
  
  #### Usage.

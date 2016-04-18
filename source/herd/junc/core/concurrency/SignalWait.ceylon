@@ -3,62 +3,60 @@ import java.util.concurrent {
 		milliseconds=\iMILLISECONDS
 	}
 }
-import java.util.concurrent.atomic {
-	AtomicBoolean
-}
 import java.util.concurrent.locks {
 	ReentrantLock,
 	Condition
 }
 
 
-"conditionning lock:
- * call [[await]] and the thread will be locked until [[signal]] not called.
- * when [[signal]] is called the condition to be signaled and thread will acquire this lock
+"Conditionning lock:
+ * Call [[await]] and the thread will be locked until [[signal]] not called.
+ * When [[signal]] is called the condition to be signaled and thread will acquire this lock.
  * [[signal]] just try to lock and returns immediately, it is supposed that is locked then
-   awaiter is in process right now or another thread sends signal
+   awaiter is in process right now or another thread sends signal.
  "
 by( "Lis" )
 class SignalWait() satisfies Signal
 {
-	"locker behind this lock"
+	"Locker behind this lock."
 	ReentrantLock locker = ReentrantLock();
 	
-	"condition behind this lock"
+	"Condition behind this lock."
 	Condition condition = locker.newCondition();
 	
-	"`true` if was signaled but no await started and `false` if await has been unlocked"
-	AtomicBoolean signaledAtomic = AtomicBoolean( false );
+	"`True` if was signaled but no await started and `false` if await has been unlocked."
+	variable Boolean signaled = false;
 	
 	
-	"wait until condition signaled. 
-	 If [[waitMilliseconds]] specified signals depending on what occurs early - time or signaling"
+	"Waits until condition signaled. 
+	 If [[waitMilliseconds]] specified signals depending on what occurs early - time or signaling."
 	see( `function signal` )
 	shared void await (
-		"milliseconds to wait or <= 0 if unlimited" Integer waitMilliseconds = 0
+		"Milliseconds to wait or <= 0 if unlimited." Integer waitMilliseconds = 0
 	) {
 		locker.lock();
 		try {
-			if ( !signaledAtomic.get() ) {
+			if ( !signaled ) {
 				if ( waitMilliseconds > 0 ) { condition.await( waitMilliseconds, milliseconds ); }
 				else { condition.await(); }
 			}
-			signaledAtomic.set( false );
+			signaled = false;
 		}
 		finally { locker.unlock(); }
 	}
 	
 	
-	"Tries to lock and if it is acquired signals that condition is satisfied.  
-	 If locked by another thread - do nothing and returns immediately"
+	"Locks and when it is acquired signals that condition is satisfied."
 	see( `function await` )
 	shared actual void signal() {
-		if ( signaledAtomic.compareAndSet( false, true ) ) {
-			if ( locker.tryLock() ) {
-				try { condition.signal(); }
-				finally { locker.unlock(); }
+		locker.lock();
+		try { 
+			if ( !signaled ) {
+				signaled = true;
+				condition.signal();
 			}
 		}
+		finally { locker.unlock(); }
 	}
 	
 }

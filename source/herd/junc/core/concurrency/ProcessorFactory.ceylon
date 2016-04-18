@@ -3,16 +3,16 @@ import java.lang {
 }
 
 
-"factory to create new processors"
+"Factory to create new processors."
 by( "Lis" )
 shared interface ProcessorFactory
 {
-	"returns new processor"
-	shared formal Processor createProcessor();
+	"Creates new processor."
+	shared formal void createProcessor( void onCreated(Processor processor) );
 	
-	"`true` if all running threads have high load level and no any thread can be added and `false` otherwise"
-	shared formal Boolean overloaded;
+	"`True` if more threads can be added and `false` otherwise."
+	shared formal Boolean extensible;
 	
-	"execute [[exec]] - a long time function within some thread pool and using queue if all threads from th pool are busy"
+	"Execute [[exec]] - a long time function within some thread pool and using queue if all threads from th pool are busy."
 	shared formal void executeBlocked( Runnable exec );
 }

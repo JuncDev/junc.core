@@ -10,66 +10,91 @@ import herd.junc.api {
 	TimeEvent
 }
 import herd.junc.core.utils {
-	ListItem,
 	TwoWayList
 }
 
 import java.util.concurrent.atomic {
-	AtomicReference
+	AtomicBoolean
+}
+import java.util.concurrent.locks {
+
+	ReentrantLock
 }
 
 
 "Executor - processor which stores all ported functions and executes them when [[process]] called.  
  When new executable added signals to [[signal]].  
- When closed signals immediately to execute all ported function and then errors to all newly ported functions 
+ When closed signals immediately to execute all ported function and then errors to all newly ported functions.
  "
 by( "Lis" )
 class Executor (
-	"used to signal when some executables added" Signal initial,
-	"capacity of sampling tocalculate smoothed factor" Integer sampleCapacity
+	"Used to signal when some executables added." Signal initial,
+	"Converts load factor to grade." LoadGrader grader,
+	"Time limit used in load calculations." Integer timeLimit,
+	"Factor used in flow averaging." Float meanFactor
 )
-		extends ListItem<Executor>()
 		satisfies CoreProcessor & TimedProcessor
 {
-		
+	
+	"Averaging factor has to be > 0.0 and < 1.0."
+	assert ( meanFactor > 0.0 && meanFactor < 1.0 );
+	
 	TwoWayList<Timed> timedExecutors = TwoWayList<Timed>();	
 	variable Integer? nextTime = null;
-	"`true` if executor contains at least one timer"
+	"`True` if executor contains at least one timer."
 	shared Boolean containsTimer => !timedExecutors.empty;
 	
-	"list of executables to be executed"
-	AtomicReference<Executable> executables = AtomicReference<Executable>();
+	"List of executables to be executed."
+	ReentrantLock executablesLock = ReentrantLock();
+	variable Executable? executablesHead = null;
+	variable Executable? executablesTail = null;
 	
 	
-	shared actual variable Boolean running = true; 
+	AtomicBoolean isRunning = AtomicBoolean( true );
+	
+	shared actual Boolean running => isRunning.get();
 	
 	
-	"signal used to signal that some functions to be executed.    
-	 The signal can be modified in order to move processor to another thread"
+	"Signal used to signal that some functions to be executed.  
+	 The signal can be modified in order to move processor to another thread."
 	shared SignalReference signal = SignalReference( initial );
 	
-	"current load level"
-	AtomicReference<LoadLevel> atomicLoadGrade = AtomicReference<LoadLevel>( LoadLevel.lowLoadLevel );
+	"Current load level."
+	variable LoadLevel currentLoadLevel = LoadLevel.lowLoadLevel;
 	
-	"load grade - low, middle or high"
-	shared actual LoadLevel loadLevel => atomicLoadGrade.get();
-	assign loadLevel => atomicLoadGrade.set( loadLevel );
+	"Load grade - low, middle or high."
+	shared actual LoadLevel loadLevel => currentLoadLevel;
+	
+	// load level calculation parameters
+	variable Float processTime = 0.0;
 	
 	
-	"usefull workload in time, milliseconds"
-	shared SmoothedFactor usefullTime = SmoothedFactor( sampleCapacity );
-	variable Float lastExecutionTime = 0.0;
-	shared Float lastUsefullTime => lastExecutionTime;
-	"executor load factor - calculated by thread"
-	shared variable Float loadFactor = 0.0;
+	"Averaged process time."
+	shared Float meanProcessTime => processTime;
+	
+	"Load factor from 0. to 1.0."
+	shared Float loadFactor => 1.0 - 1.0 / ( 1.0 + processTime / timeLimit );
 	
 		
-	"put executable to proceed list"
+	"Puts executable to proceed list."
 	see( `function process` )
 	void putExecutable( Executable executable ) {
 		if ( running ) {
-			executable.next = executables.getAndSet( executable );
-			signal.signal();
+			executablesLock.lock();
+			try {
+				if ( exists tail = executablesTail ) {
+					tail.next = executable;
+					executablesTail = executable;
+				}
+				else {
+					executablesTail = executable;
+					executablesHead = executable;
+				}
+				signal.signal();
+			}
+			finally {
+				executablesLock.unlock();
+			}
 		}
 		else { executable.reject( ContextStoppedError() ); }
 	}
@@ -118,8 +143,7 @@ class Executor (
 	
 	
 	shared actual Promise<Processor> close() {
-		if ( running ) {
-			running = false;
+		if ( isRunning.compareAndSet( true, false ) ) {
 			value res = currentContext.newResolver<Processor>();
 			putExecutable( VoidExecutable( () => res.resolve( this ) ) );
 			return res.promise;
@@ -129,19 +153,19 @@ class Executor (
 		}
 	}
 	
-	//shared actual Boolean running => state == stateRunning;
 	
-	
-	"Runs timed functions.  Returns usefull workload in time. miliseconds"
-	void processTimed() {
-		Integer currentTime = system.milliseconds; 
-		if ( exists gt = nextTime, gt < currentTime ) {
+	"Runs timed functions.  Returns usefull workload in time. miliseconds.  
+	 Return number of actuaaly processed functions."
+	Integer processTimed() {
+		variable Integer ret = 0;
+		if ( exists gt = nextTime, gt < system.milliseconds ) {
 			variable Integer? minNext = null;
 			timedExecutors.lock();
 			variable Timed? ex = timedExecutors.head;
 			while ( exists te = ex ) {
 				ex = te.next;
-				te.process( currentTime );
+				ret ++;
+				te.process( system.milliseconds );
 				if ( exists nt = te.nextFire ) {
 					if ( exists min = minNext ) {
 						if ( nt < min ) { minNext = nt; }
@@ -153,63 +177,58 @@ class Executor (
 			if ( timedExecutors.empty ) { nextTime = null; }
 			else { nextTime = minNext; }
 		}
+		return ret;
 	}
 	
 	
-	"Actually processed all executables in current list."
+	"Actually processed all executables in current list.  
+	 Returns number of actually proceeded functions."
 	Integer proceedExecutables() {
-		variable Integer processed = 0;
-		variable Executable? executable = executables.getAndSet( null );
+		variable Integer ret = 0;
+		variable Executable? executable;
+		executablesLock.lock();
+		executable = executablesHead;
+		executablesTail = null;
+		executablesHead = null;
+		executablesLock.unlock();
 		// executables are put in reversed order, so iterate the list to put them in correct ordder firstly
-		variable Executable? head = executable;
-		while ( exists exec = executable ) {
-			if ( exists next = exec.next ) {
-				next.prev = exec;
-			}
-			else {
-				head = exec;
-			}
-			executable = exec.next;
-		}
 		// process executables in correct order
-		while ( exists exec = head ) {
-			head = exec.prev;
+		while ( exists exec = executable ) {
+			executable = exec.next;
 			exec.proceed();
-			processed ++;
+			ret ++;
 		}
-		return processed;
+		return ret;
 	}
 	
-	"Runs all added executables.  Returns number of actually processed functions"
+	
+	"Runs all added executables.  Returns number of actually processed functions."
 	shared Integer process() {
 		// process on context
+		Integer startNanos = system.nanoseconds;
 		variable Integer processed = 0;
 		if ( running ) {
-			variable Integer executionTime = 0;
-			Integer startNanos = system.nanoseconds;
+			// process execution queue
 			processed = proceedExecutables();
-			executionTime = system.nanoseconds - startNanos;
-		
 			// process timed functions
-			Integer timedStart = system.nanoseconds;
-			processTimed();
-			executionTime += system.nanoseconds - timedStart;
-			lastExecutionTime = 0.000001 * executionTime;
-		
-			// calculate execution rates
-			usefullTime.addSample( lastExecutionTime );
+			processed += processTimed();
 		}
 		
-		// if goes to close after processing - process all posted in previous execute cycle
-		if ( !running ) {
-			registration.cancel();
+		if ( running ) {
+			// Calculate load terms
+			Float executionTime = 0.000001 * ( system.nanoseconds - startNanos );
+			processTime = meanFactor * executionTime + ( 1 - meanFactor ) * processTime;
+			currentLoadLevel = grader.grade( loadFactor, currentLoadLevel );
+		}
+		else {
+			// if goes to close after processing - process all posted in previous execute cycle
 			proceedExecutables();
 		}
 		
 		return processed;
 	}
 	
-	"returns time to execute timed functions or `null` if no"
+	"Returns time to execute timed functions or `null` if no."
 	shared Integer? timelyExecution => nextTime;
 	
 }

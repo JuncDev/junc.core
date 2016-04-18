@@ -8,7 +8,7 @@ import java.util.concurrent.atomic {
 }
 
 
-"counter implementation"
+"Counter implementation."
 by( "Lis" )
 class Countered( shared actual String name ) satisfies CounterMetric & Counter
 {
@@ -16,7 +16,7 @@ class Countered( shared actual String name ) satisfies CounterMetric & Counter
 	AtomicLong atomic = AtomicLong( 0 );
 	
 	
-	"returns current counting value"
+	"Returns current counting value."
 	shared actual Integer measure() => atomic.get();
 	
 	shared actual void decrement( Integer on ) => atomic.addAndGet( -on );

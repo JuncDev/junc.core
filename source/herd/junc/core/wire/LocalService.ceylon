@@ -50,7 +50,7 @@ class LocalService<From, To> (
 	Emitter<JuncSocket<To, From>> slot = messanger.emitter;
 	
 	"Is service closed."
-	AtomicBoolean atomicClosed = AtomicBoolean(false );
+	AtomicBoolean atomicClosed = AtomicBoolean( false );
 	shared actual Boolean closed => atomicClosed.get();
 	
 	
@@ -63,11 +63,10 @@ class LocalService<From, To> (
 	
 	
 	
-	shared actual Registration onConnected<Receive, Send>( void connected( JuncSocket<Receive, Send> socket ) )
-			given Receive satisfies To
-			given Send satisfies From => slot.onData( connected );
+	shared actual Registration onConnected( void connected( JuncSocket<To, From> socket ) )
+			=> slot.onData( connected );
 	
-	shared actual Registration onError( void error( Throwable err ) )  => slot.onError( error );
+	shared actual Registration onError( void error( Throwable err ) ) => slot.onError( error );
 	
 	shared actual Registration onClose( void close() ) => slot.onClose( close );
 	

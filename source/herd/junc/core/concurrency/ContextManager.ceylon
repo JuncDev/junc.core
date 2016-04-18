@@ -28,19 +28,21 @@ shared class ContextManager
 	"Factor on available core processor to estimate maximum possible threads.  
 	 So maximum number of threads is `coreFactor` * `Runtime.runtime.availableProcessors()`."
 	Float coreFactor,
-	"Persents the controls may take from full execution time at middle load level."
-	Float controlPersent,
 	"Converts load factor to grade."
 	LoadGrader grader,
-	"Number of samples to calculate mean value."
-	Integer sampleCapacity,
+	"Optimization is run every `loopsForOptimization`."
+	Integer loopsForOptimization,
+	"Time limit used in load calculations."
+	Integer timeLimit,
+	"Factor used in flow averaging."
+	Float meanFactor,
 	"Monitor to store context metrics."
 	Monitor monitor
 )
 		satisfies ProcessorFactory
 {
 	
-	ThreadManager manager = ThreadManager( coreFactor, controlPersent, grader, sampleCapacity, monitor );
+	ThreadManager manager = ThreadManager( coreFactor, grader, loopsForOptimization, timeLimit, meanFactor, monitor );
 	
 	ExecutorService blocked = Executors.newFixedThreadPool (
 		if ( Runtime.runtime.availableProcessors() / 2 > 0 ) then Runtime.runtime.availableProcessors() / 2 else 1
@@ -51,9 +53,9 @@ shared class ContextManager
 	shared void close() => manager.close();
 	
 	
-	shared actual Processor createProcessor() => manager.createExecutor();
+	shared actual void createProcessor( void onCreated(Processor processor) ) => manager.createExecutor( onCreated );
 	
-	shared actual Boolean overloaded => manager.overloaded;
+	shared actual Boolean extensible => manager.extensible;
 	
 	shared actual void executeBlocked( Runnable exec ) => blocked.execute( exec );
 	

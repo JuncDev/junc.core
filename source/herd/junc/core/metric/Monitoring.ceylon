@@ -14,10 +14,7 @@ import herd.junc.api.monitor {
 	CounterMetric,
 	Gauge,
 	GaugeMetric,
-	LogWriter,
 	MeterMetric,
-	MetricWriter,
-	MetricSet,
 	Monitor,
 	Priority,
 	Meter,
@@ -43,6 +40,12 @@ import java.util.concurrent.atomic {
 import java.util.concurrent.locks {
 	ReentrantLock
 }
+import herd.junc.core {
+
+	LogWriter,
+	MetricWriter,
+	MetricSet
+}
 
 
 "Provides monitoring of metrics."
@@ -57,12 +60,12 @@ shared class Monitoring (
 	"`True` if monitoring is doing and `false` if restricted."
 	Boolean monitoringAvailable = metricWriteMilliseconds > 100;
 	
-	"context monitor to work on"
+	"Context monitor to work on."
 	ContextReference contextRef = ContextReference( currentContext );
 	variable Timer timer = completedTimer;
 	
 	
-	"log writes"
+	"Log writes."
 	DualList<LogWriter> logWriters = DualList<LogWriter>();
 	
 	class LogMessage( String identifier, Priority priority, String message, Throwable? throwable ) {
@@ -99,8 +102,10 @@ shared class Monitoring (
 	DualList<MetricWriter> metricWriters = DualList<MetricWriter>(); 
 	
 	
-	object metricSetProcessor extends MetricSet( gaugesImmut, countersImmut, metersImmut, averagesImmut ) {
-		shared void process( ListBody<MetricWriter> writer ) => writer.body.writeMetric( this );
+	class MetricSetProcessor() extends MetricSet( gaugesImmut, countersImmut, metersImmut, averagesImmut ) {
+		shared void process( ListBody<MetricWriter> writer ) {
+			writer.body.writeMetric( this );
+		}
 	}
 	
 	
@@ -174,7 +179,7 @@ shared class Monitoring (
 		finally { raceLock.unlock(); }
 		
 		// write metrics
-		metricWriters.forEachActive( metricSetProcessor.process );
+		metricWriters.forEachActive( MetricSetProcessor().process );
 	}
 	
 	

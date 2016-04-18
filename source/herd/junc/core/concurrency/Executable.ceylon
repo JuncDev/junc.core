@@ -11,8 +11,6 @@ abstract class Executable() {
 	shared formal void reject( Throwable err );
 	
 	shared variable Executable? next = null;
-	shared variable Executable? prev = null;
-	
 }
 
 

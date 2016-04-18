@@ -18,7 +18,8 @@ import herd.junc.api {
 	JuncEvent,
 	WorkshopRemovedEvent,
 	ServiceAddedEvent,
-	ServiceClosedEvent
+	ServiceClosedEvent,
+	Message
 }
 import ceylon.collection {
 
@@ -73,8 +74,8 @@ class WorkshopImpl<in From, in To, in Address> (
 		}
 	}
 	
-	"Adds newly created service."
-	void addService<Send, Receive>( JuncService<Send, Receive> service ) {
+	"Stores added service."
+	void storeService<Send, Receive>( JuncService<Send, Receive> service )() {
 		providedLock.lock();
 		try {
 			ServiceBox<Send, Receive> box = ServiceBox<Send, Receive>( service.address );
@@ -98,6 +99,11 @@ class WorkshopImpl<in From, in To, in Address> (
 					reg.cancel();
 					Integer remainServices = removeIfEmpty( box );
 					events.publish( ServiceClosedEvent( box.getDecriptor( remainServices ) ) );
+					// log to monitor
+					monitor.logInfo (
+						monitored.core,
+						"service with address ```service.address``` has been closed"
+					);
 				}
 			);
 			
@@ -114,6 +120,7 @@ class WorkshopImpl<in From, in To, in Address> (
 			providedLock.unlock();
 		}
 	}
+	
 	
 	"Closes service."
 	void closeService( ListBody<JuncServiceAny> service ) => service.registration.cancel();		
@@ -153,7 +160,7 @@ class WorkshopImpl<in From, in To, in Address> (
 	}
 	
 	
-	shared actual Promise<JuncService<Send, Receive>> provideService<Send, Receive> (
+	shared actual Promise<Message<JuncService<Send, Receive>, Null>> provideService<Send, Receive> (
 		Address address, Context context
 	)
 			given Send of From
@@ -162,10 +169,14 @@ class WorkshopImpl<in From, in To, in Address> (
 		return workshopContext.executeWithPromise (
 			unflatten( workshop.provideService<Send, Receive> ),
 			[address, context]
-		).onComplete (
-			addService,
-			( Throwable err ) => logRegistrationError( address, err )
-		).contexting( context );
+		).map (
+			( Message<JuncService<Send, Receive>, Null> message ) {
+				return MessageWrapper (
+					message, workshopContext, storeService( message.body ), null
+				);
+			},
+			context
+		).onError( ( Throwable err ) => logRegistrationError( address, err ) );
 	}
 	
 	

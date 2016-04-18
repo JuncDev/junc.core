@@ -61,7 +61,7 @@ shared class TwoWayList<List>()
 	"Removes item from the list - doesn't matter lockedlist or not and item dismissed or not.  
 	 Thread unsafe - use listLock.lock before call!"
 	void doRemoveItem( ListItem<List> item ) {
-		if ( item.state == stateDismissed ) {
+		if ( item.state == ListItemState.stateDismissed ) {
 			// remove from list
 			if ( exists next = item.next ) {
 				if ( exists prev = item.previous ) { prev.next = next; }
@@ -79,7 +79,7 @@ shared class TwoWayList<List>()
 				}
 			}
 			// set item list data to avoid subsequent removing
-			item.state = stateAlreadyRemoved;
+			item.state = ListItemState.stateAlreadyRemoved;
 			item.previous = null;
 			item.next = null;
 		}
@@ -94,11 +94,11 @@ shared class TwoWayList<List>()
 			if ( containsDismissed.compareAndSet( true, false ) ) {
 				variable List? list = headItem;
 				while ( exists l = list ) {
-					if ( l.state == stateDismissed ) {
+					if ( l.state == ListItemState.stateDismissed ) {
 						variable List? nextLife = l.next;
-						while ( exists n = nextLife, n.state == stateDismissed ) {
+						while ( exists n = nextLife, n.state == ListItemState.stateDismissed ) {
 							nextLife = n.next;
-							n.state = stateAlreadyRemoved;
+							n.state = ListItemState.stateAlreadyRemoved;
 						}
 						if ( exists n = nextLife ) {
 							if ( exists prev = l.previous ) {
@@ -133,8 +133,8 @@ shared class TwoWayList<List>()
 				variable List? list = headItem;
 				while ( exists l = list ) {
 					list = l.next;
-					if ( l.state == stateAdding ) {
-						l.state = stateActive;
+					if ( l.state == ListItemState.stateAdding ) {
+						l.state = ListItemState.stateActive;
 						listSize.incrementAndGet();
 					}
 				}
@@ -175,7 +175,7 @@ shared class TwoWayList<List>()
 			variable List? next = head;
 			while( exists n = next ) {
 				next = n.next;
-				n.state = stateAlreadyRemoved;
+				n.state = ListItemState.stateAlreadyRemoved;
 				n.registration.reference = emptyRegistration;
 				n.next = null;
 				n.previous = null;
@@ -191,7 +191,7 @@ shared class TwoWayList<List>()
 			variable List? next = head;
 			while( exists n = next ) {
 				next = n.next;
-				n.state = stateDismissed;
+				n.state = ListItemState.stateDismissed;
 				n.registration.reference = emptyRegistration;
 			}
 			containsDismissed.set( true );
@@ -201,7 +201,7 @@ shared class TwoWayList<List>()
 	
 	"Removes item from list or set dismissed if list locked."
 	shared default void removeItem( List item ) {
-		item.state = stateDismissed;
+		item.state = ListItemState.stateDismissed;
 		item.registration.reference = emptyRegistration;
 		listSize.decrementAndGet();
 		// remove if not locked
@@ -222,19 +222,22 @@ shared class TwoWayList<List>()
 		if ( exists t = tailItem ) {
 			t.next = item;
 			item.previous = t;
+			item.next = null;
 			tailItem = item;
 		}
 		else {
 			headItem = item;
 			tailItem = item;
+			item.previous = null;
+			item.next = null;
 		}
 		// activate if not locked
 		if ( lockCount.get() == 0 ) {
-			item.state = stateActive;
+			item.state = ListItemState.stateActive;
 			listSize.incrementAndGet();
 		}
 		else {
-			item.state = stateAdding;
+			item.state = ListItemState.stateAdding;
 			containsAdding.set( true );
 		}
 		
@@ -250,8 +253,8 @@ shared class TwoWayList<List>()
 	shared List? nextActive( List? item ) {
 		variable List? next = item;
 		while ( exists n = next ) {
-			if ( n.state == stateActive ) { return n; }
 			next = n.next;
+			if ( n.state == ListItemState.stateActive ) { return n; }
 		}
 		return null;
 	}
