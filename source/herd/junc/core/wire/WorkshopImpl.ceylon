@@ -19,7 +19,8 @@ import herd.junc.api {
 	WorkshopRemovedEvent,
 	ServiceAddedEvent,
 	ServiceClosedEvent,
-	Message
+	Message,
+	JuncTrack
 }
 import ceylon.collection {
 
@@ -161,21 +162,21 @@ class WorkshopImpl<From, To, Address> (
 	
 	
 	shared actual Promise<Message<JuncService<Send, Receive>, Null>> provideService<Send, Receive> (
-		Address address, Context context
+		Address address, JuncTrack track
 	)
 			given Send of From
 			given Receive of To
 	{
 		return workshopContext.executeWithPromise (
 			unflatten( workshop.provideService<Send, Receive> ),
-			[address, context]
+			[address, track]
 		).map (
 			( Message<JuncService<Send, Receive>, Null> message ) {
 				return MessageWrapper (
 					message, workshopContext, storeService( address, message.body ), null
 				);
 			},
-			context
+			track.context
 		).onError( ( Throwable err ) => logRegistrationError( address, err ) );
 	}
 	

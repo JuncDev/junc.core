@@ -93,13 +93,13 @@ class LocalConnector (
 	
 	
 	shared actual Promise<Message<JuncService<Send, Receive>, Null>> provideService<Send, Receive> (
-		ServiceAddress address, Context context
+		ServiceAddress address, JuncTrack track
 	)
 			given Send of Anything
 			given Receive of Anything	
 	{
-		value addedService = LocalService<Send, Receive>( address, context, junc );
-		return context.resolvedPromise (
+		value addedService = LocalService<Send, Receive>( address, track.context, junc );
+		return track.context.resolvedPromise (
 			this.track.createMessage<JuncService<Send, Receive>, Null> (
 				addedService,
 				( Message<Null, JuncService<Send, Receive>> msg ) {

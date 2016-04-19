@@ -133,7 +133,7 @@ shared class StationManager (
 			)	given Address satisfies JuncAddress
 					=>	if ( closed )
 					then currentContext.rejectedPromise( ContextStoppedError() )
-					else outer.registerService<FromService, ToService, Address>( address, processor )
+					else outer.registerService<FromService, ToService, Address>( address, this )
 						.onComplete( track.storeService );
 			
 			shared actual Promise<Registration> registerConnector<From, To, Address> (
@@ -298,13 +298,13 @@ shared class StationManager (
 	"Registers service with given address, data types and work context."
 	Promise<JuncService<From, To>> registerService<From, To, Address> (
 		"Address service listen to." Address address,
-		"Context service has to work on." Context context
+		"Context service has to work on." JuncTrack track
 	)
 			given Address satisfies JuncAddress
 	{
 		if ( running ) {
 			if ( exists work = stationContainer.getWorkshop<From, To, Address>() ) {
-				return work.provideService<From, To>( address, context ).map (
+				return work.provideService<From, To>( address, track ).map (
 					( Message<JuncService<From, To>, Null> message )
 						=> JuncServiceEstablisher( message.body, message )
 				);
@@ -316,7 +316,7 @@ shared class StationManager (
 					"tries to register service with unsupported address ```address```",
 					err
 				);
-				return context.rejectedPromise( err );
+				return track.context.rejectedPromise( err );
 			}
 		}
 		else {
