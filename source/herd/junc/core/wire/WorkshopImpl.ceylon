@@ -38,7 +38,7 @@ import java.util.concurrent.locks {
 
 "Wrokshop storage."
 by( "Lis" )
-class WorkshopImpl<in From, in To, in Address> (
+class WorkshopImpl<From, To, Address> (
 	"Backed workshop." Workshop<From, To, Address> workshop,
 	"Context workshop works on." Context workshopContext,
 	"Publishing workshop events." Publisher<JuncEvent> events,
@@ -53,7 +53,7 @@ class WorkshopImpl<in From, in To, in Address> (
 
 	
 	"Returns total number of service with the same type and address."
-	Integer removeIfEmpty<Send, Receive>( ServiceBox<Send, Receive> box ) {
+	Integer removeIfEmpty<Send, Receive>( ServiceBox<Send, Receive, Address> box ) {
 		providedLock.lock();
 		try {
 			if ( exists list = providedServices.get( box ) ) {
@@ -75,10 +75,10 @@ class WorkshopImpl<in From, in To, in Address> (
 	}
 	
 	"Stores added service."
-	void storeService<Send, Receive>( JuncService<Send, Receive> service )() {
+	void storeService<Send, Receive>( Address address, JuncService<Send, Receive> service )() {
 		providedLock.lock();
 		try {
-			ServiceBox<Send, Receive> box = ServiceBox<Send, Receive>( service.address );
+			ServiceBox<Send, Receive, Address> box = ServiceBox<Send, Receive, Address>( address );
 			Registration reg;
 			Integer totalServices;
 			// add service to the list
@@ -137,7 +137,7 @@ class WorkshopImpl<in From, in To, in Address> (
 			events.publish (
 				WorkshopRemovedEvent<From, To, Address> (
 					object satisfies WorkshopDescriptor<From, To, Address> {
-						shared actual {ServiceDescriptor<Send, Receive>*} services<Send, Receive>()
+						shared actual {ServiceDescriptor<Send, Receive, Address>*} services<Send, Receive>()
 								given Send satisfies From
 								given Receive satisfies To
 								=> {};
@@ -172,7 +172,7 @@ class WorkshopImpl<in From, in To, in Address> (
 		).map (
 			( Message<JuncService<Send, Receive>, Null> message ) {
 				return MessageWrapper (
-					message, workshopContext, storeService( message.body ), null
+					message, workshopContext, storeService( address, message.body ), null
 				);
 			},
 			context
@@ -185,10 +185,10 @@ class WorkshopImpl<in From, in To, in Address> (
 		try {
 			ServiceDescriptorAny[] listOfServices = [for ( key->item in providedServices ) key.getDecriptor( item.size ) ];
 			return object satisfies WorkshopDescriptor<From, To, Address> {
-				shared actual {ServiceDescriptor<Send, Receive>*} services<Send, Receive>()
+				shared actual {ServiceDescriptor<Send, Receive, Address>*} services<Send, Receive>()
 						given Send satisfies From
 						given Receive satisfies To
-						=> listOfServices.narrow<ServiceDescriptor<Send, Receive>>();
+						=> listOfServices.narrow<ServiceDescriptor<Send, Receive, Address>>();
 			};
 		}
 		finally {

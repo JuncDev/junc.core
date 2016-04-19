@@ -140,8 +140,8 @@ class StationRegister (
 		ArrayList<WorkshopDescriptor<From, To, Address>> ret = ArrayList<WorkshopDescriptor<From, To, Address>>();
 		stationWorkshops.forEachActive (
 			( ListBody<WorkshopAny> con ) {
-				if ( is WorkshopAbs<From, To, Address> abs = con.body ) {
-					ret.add( abs.descriptor );
+				if ( is WorkshopDescriptor<From, To, Address> abs = con.body.descriptor ) {
+					ret.add( abs );
 				}
 			}
 		);
@@ -214,7 +214,7 @@ class StationRegister (
 				events.publish (
 					WorkshopAddedEvent<From, To, Address> (
 						object satisfies WorkshopDescriptor<From, To, Address> {
-							shared actual {ServiceDescriptor<Send, Receive>*} services<Send, Receive>()
+							shared actual {ServiceDescriptor<Send, Receive, Address>*} services<Send, Receive>()
 									given Send satisfies From
 									given Receive satisfies To
 									=> {};

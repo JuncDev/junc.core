@@ -24,8 +24,7 @@ import herd.junc.api {
 	JuncTrack,
 	TimeEvent,
 	PeriodicTimeRow,
-	ServiceAddedEvent,
-	JuncAddress
+	ServiceAddedEvent
 }
 import herd.asynctest.match {
 	EqualTo,
@@ -140,8 +139,8 @@ shared class BasicJuncCore() satisfies TestSuite {
 		socket.publish( toSend );
 	}
 
-	void onServiceRegistered( AsyncTestContext context )( ServiceAddedEvent<Integer, Integer> event ) {
-		context.assertThat( event.service.address, EqualObjects<JuncAddress>( addressSocket ), "", true );
+	void onServiceRegistered( AsyncTestContext context )( ServiceAddedEvent<Integer, Integer, ServiceAddress> event ) {
+		context.assertThat( event.service.address, EqualObjects<ServiceAddress>( addressSocket ), "", true );
 	}
 	
 	"Test on connecting to service and sending data using socket."

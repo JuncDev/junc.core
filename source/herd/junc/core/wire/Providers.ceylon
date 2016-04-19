@@ -18,7 +18,7 @@ interface WorkshopAbs<in From, in To, in Address> satisfies Workshop<From, To, A
 	shared formal void close();
 	
 	"Returns descriptor of this workshop."
-	shared formal WorkshopDescriptor<From, To, Address> descriptor;
+	shared formal WorkshopDescriptor<From, To, JuncAddress> descriptor;
 	
 }
 
@@ -42,24 +42,23 @@ interface ConnectorAny => ConnectorAbs<Nothing, Nothing, Nothing>;
 
 "Box to provide service descriptor."
 by( "Lis" )
-class ServiceBox<in From, in To> (
-	shared JuncAddress address
+class ServiceBox<in From, in To, out Address> (
+	shared Address address
 )
 		extends Object()
+		given Address satisfies JuncAddress
 {
 	
-	Boolean compareTypes( ServiceBoxAny box ) => if ( is ServiceBox<From, To> box ) then true else false;
-	
-	shared ServiceDescriptor<From, To> getDecriptor( Integer totalNumber ) =>
-			object satisfies ServiceDescriptor<From, To> {
-				shared actual JuncAddress address => outer.address;
+	shared ServiceDescriptor<From, To, Address> getDecriptor( Integer totalNumber ) =>
+			object satisfies ServiceDescriptor<From, To, Address> {
+				shared actual Address address => outer.address;
 				shared actual Integer count => totalNumber;
 			};
 
 	
 	shared actual Boolean equals( Object that ) {
-		if ( is ServiceBoxAny that, address == that.address ) {
-			return compareTypes( that ) && that.compareTypes( this );
+		if ( is ServiceBox<From, To, Address> that ) {
+			return address == that.address;
 		}
 		else {
 			return false;
@@ -70,4 +69,4 @@ class ServiceBox<in From, in To> (
 	
 }
 
-alias ServiceBoxAny => ServiceBox<Nothing, Nothing>;
+alias ServiceBoxAny => ServiceBox<Nothing, Nothing, Anything>;
